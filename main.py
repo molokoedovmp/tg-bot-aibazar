@@ -1,9 +1,11 @@
+from flask import Flask, request, jsonify
 import telebot
 from telebot import types
 import requests
 import time
 import logging
 from datetime import datetime
+import os
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -22,6 +24,28 @@ bot = telebot.TeleBot(TOKEN)
 
 # Словарь для хранения данных пользователей
 user_data = {}
+
+app = Flask(__name__)
+
+# Настройка вебхука
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+    bot.process_new_updates([update])
+    return jsonify({'status': 'ok'})
+
+# Индексная страница
+@app.route('/', methods=['GET'])
+def index():
+    return "Бот работает!"
+
+# Настройка вебхука
+@app.route('/set_webhook', methods=['GET'])
+def set_webhook():
+    url = 'https://ваш-домен-на-vercel.vercel.app/webhook'
+    bot.remove_webhook()
+    bot.set_webhook(url=url)
+    return f"Webhook установлен на {url}"
 
 # Функция для получения курса доллара с увеличением
 def get_usd_rate():
@@ -238,18 +262,7 @@ def callback_handler(call):
     else:
         bot.answer_callback_query(call.id)
 
-# Запуск бота с обработкой ошибок
 if __name__ == '__main__':
-    print("Бот запущен...")
-    
-    # Бесконечный цикл с обработкой ошибок
-    while True:
-        try:
-            bot.polling(none_stop=True, interval=1, timeout=30)
-        except telebot.apihelper.ApiException as e:
-            logger.error(f"ApiException: {e}")
-            time.sleep(5)
-        except Exception as e:
-            logger.error(f"Ошибка: {e}")
-            time.sleep(10)
+    # Для локального тестирования
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 
